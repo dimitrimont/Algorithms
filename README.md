@@ -1,114 +1,111 @@
-# Interactive Search and Sort Algorithms
+# Search and sort algorithms
 
-This repository contains implementations of fundamental search and sort algorithms in Python with an interactive command-line interface.
-Overview
-This program provides Python implementations of common searching and sorting algorithms with a user-friendly interface that allows for customizable testing. Users can generate random test data and select specific algorithms to run, making it useful for both learning and algorithm comparison.
-Features
+Three searches and five sorts, written by hand in Python, behind a small menu that fills lists
+with random numbers and characters to try them on. It was a class assignment in spring 2025, and
+was revised in October 2026.
 
-## Interactive command-line menu system
+The tag `first-version` is the program as first uploaded.
 
-Random test data generation (numbers and characters)
-User-configurable list sizes
-Execution time measurement for performance analysis
-Clear organization of algorithm types
+## Run it
 
-## Search Algorithms
-The following search algorithms are implemented:
+With Python 3.9 or later:
 
-### Linear Search
+```bash
+python Algorithms.py              # the menu
+python Algorithms.py --seed 7     # the same random lists every time
+python -m pip install pytest && python -m pytest tests   # 74 known-answer tests
+python evaluation/compare.py      # both versions on the same 10,000 lists
+```
 
-Simple sequential search through an unsorted list
-O(n) time complexity
-Suitable for small lists or unsorted data
+The menu keeps going until you choose Exit, and asks again when you type something it can't use.
 
+## The algorithms
 
-### Smart Search
+Each search returns where it found the target, or `None`, and how many times it compared the
+target with an item.
 
-Modified linear search that first sorts the list
-Improves efficiency for certain use cases
-Good balance between simplicity and performance
+| Search | Needs a sorted list | Comparisons for n items |
+| --- | --- | --- |
+| Linear search | No | up to n |
+| Smart search: a linear search that stops at the first item not smaller than the target | Yes | up to n, fewer when the target is missing |
+| Binary search | Yes | about log2 n |
 
+For smart and binary search, the menu sorts both lists first and shows you the sorted lists, so
+the positions it prints are positions in lists on the screen. The time it prints covers the
+search alone.
 
-### Binary Search
+| Sort | Comparisons for n items | Notes |
+| --- | --- | --- |
+| Bubble sort | about n²/2 | |
+| Selection sort | about n²/2 | Moves the largest remaining item to the end of each pass. |
+| Insertion sort | about n²/4 on a random list | Fast on a list that is nearly sorted. |
+| Merge sort | about n log2 n | Stable: equal items keep their order. |
+| Quick sort | about n log2 n on average | Middle pivot, split three ways around it. |
 
-Efficient search algorithm for sorted lists
-O(log n) time complexity
-Includes tracking of the number of comparisons made
+## The first version against this one
 
+From `python evaluation/compare.py`: 10,000 random lists of 10 numbers from 0 to 100, as the menu
+makes them.
 
+| Check | First version | This version |
+| --- | --- | --- |
+| Bubble sort: lists left out of order | 917 | 0 |
+| Selection sort: lists left out of order | 8,914 | 0 |
+| Insertion sort: lists left out of order | 0 | 0 |
+| Merge sort: lists left out of order | 0 | 0 |
+| Quick sort: lists left out of order | 9,630 | 0 |
+| Smart search: missing numbers called found (of 9,035) | 8,147 | 0 |
+| Smart search: position points at another number in the list shown | 8,998 | 0 |
+| Binary search: position points at another number in the list shown | 8,998 | 0 |
 
-## Sort Algorithms
-The following sorting algorithms are implemented:
+What was wrong, and what changed:
 
-### Bubble Sort
+- **The sort menu crashed before sorting.** It filled the list with `num`, a name that only the
+  search menu defines, so every sort of one number or more stopped with a `NameError`. None of
+  the five sorts ever ran from the menu. It now fills the list it means to.
+- **Bubble sort skipped its last pass.** `range(n - 1, 1, -1)` stops at 2, so the first two items
+  were never compared at the end: `[3, 2, 1]` came back `[2, 1, 3]`, and no two-item list was
+  sorted. The range now runs down to 1.
+- **Selection sort skipped a slot, and never looked at each slot's own item.** The search for the
+  largest item stopped one place short, so a large item already in its slot was swapped away. An
+  already sorted `0` to `9` came back `[0, 9, 1, 2, 3, 4, 5, 6, 7, 8]`, and lists of 100 were
+  wrong 98% of the time. Both ranges now include the slot.
+- **Quick sort crashed on its first small piece.** It returned `num_lst`, another name only the
+  search menu defines, so the first call on a piece of one item stopped with a `NameError` and
+  left the list part sorted. Fixing that alone wasn't enough: with the last item as the pivot, an
+  already sorted list of 1,000, or 200,000 of the menu's numbers (many repeats), went deeper than
+  Python allows. It now takes the middle item as the pivot, splits the items into less, equal and
+  greater, and recurses into the smaller side only.
+- **Smart search said it found numbers that weren't there.** It stopped at the first item not
+  smaller than the target and reported `True` even when that item was a different number: 8,147
+  of 9,035 missing numbers were "found". It now reports a find only when the item equals the
+  target.
+- **Positions pointed into a list nobody saw.** Smart and binary search sorted a copy and gave
+  positions in the copy, while the menu showed the unsorted list. The menu now sorts first and
+  shows that list.
+- **"Smart" search was the slowest search.** Sorting first takes about n log2 n comparisons, so at
+  1,000 items it made 9,171 comparisons to linear search's 565. It now expects a sorted list, as
+  binary search does, and on the same sorted list it never makes more comparisons than linear
+  search.
+- **The time included the typing.** The clock started before the program asked for the target,
+  so a two-second pause read as "Execute time: 2.2074s". It now times the search alone.
+- **Merge sort wasn't stable.** On a tie it took the item from the right half. It now takes the
+  left one, so equal items keep their order (the old README already said it was stable).
+- **Searches printed instead of returning.** They returned the value of `print`, which is `None`,
+  and linear search reported position `n` for a missing number. They now return the position or
+  `None`, and the comparison count; the menu does the printing.
+- **Any wrong key crashed the menu**, and it ran once per launch. It now loops, asks again, and
+  stops cleanly when the input ends.
 
-Simple comparison-based sorting algorithm
-O(n²) time complexity
-Repeatedly compares adjacent elements and swaps them if needed
+## The tests
 
+`tests/test_algorithms.py` checks every sort against known answers (including empty lists, one
+item, repeats and characters) and against 800 random lists each, quick sort on the lists that once
+ran out of stack, merge sort's stability, each search's position and comparison count on known
+lists, and the three searches against each other on 2,000 random lists. Four tests run the menu
+as a separate program and type into it, including one that waits 1.5 seconds before typing and
+checks that the printed time leaves the wait out.
 
-### Selection Sort
+## Author
 
-In-place comparison sort
-O(n²) time complexity
-Finds the maximum element and places it at the end in each pass
-
-
-### Insertion Sort
-
-Simple sorting algorithm that builds the final sorted array one item at a time
-O(n²) time complexity in worst case, but efficient for small data sets
-
-
-### Merge Sort
-
-Efficient, stable, divide and conquer algorithm
-O(n log n) time complexity
-Divides the array into halves, sorts them recursively, and merges them
-
-
-### Quick Sort
-
-Efficient divide and conquer sorting algorithm
-O(n log n) average time complexity
-Uses a pivot element to partition the array
-
-
-
-## Usage
-
-### Run the program:
-Copypython Algorithms.py
-
-### Follow the interactive menu:
-
-Choose between Search Algorithms or Sort Algorithms
-Specify the size of the test data
-Select a specific algorithm to run
-
-
-### For search algorithms:
-
-The program generates random numeric and character lists
-You'll be prompted to enter target values to search for
-Results show whether the target was found and its position
-Some algorithms also display execution time
-
-
-### For sort algorithms:
-
-The program generates a random numeric list
-The selected algorithm sorts the list
-The sorted list is displayed
-
-
-
-## Implementation Details
-
-All algorithms are implemented from first principles without using Python's built-in sorting or searching functions
-Random data generation uses Python's random and string modules
-The program demonstrates basic algorithm analysis by measuring execution time for some operations
-Includes both recursive implementations (Merge Sort, Quick Sort) and iterative implementations (other algorithms)
-
-Author
 Dimitri Montgomery
